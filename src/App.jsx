@@ -1,36 +1,12 @@
 import * as THREE from 'three'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment, PerformanceMonitor, Float, Sparkles, MeshReflectorMaterial } from '@react-three/drei'
+// FIX 1: PresentationControls hata kar OrbitControls import kiya
+import { Environment, Float, Sparkles, OrbitControls } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
-import { useState, useRef, useEffect } from 'react' 
+import { useState, useRef, useEffect, Suspense } from 'react' 
+import { Model } from './Cyber_desk'
 
-// --- 1. PREMIUM CYBER DESK ---
-const CyberDesk = () => (
-  <group position={[0, -1.5, 0]}>
-    <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[20, 10]} />
-      <MeshReflectorMaterial blur={[300, 100]} resolution={1024} mixBlur={1} mixStrength={80} roughness={0.1} depthScale={1.2} color="#050505" metalness={0.8} mirror={0.5} />
-    </mesh>
-    <mesh position={[0, -0.01, 2]}>
-      <boxGeometry args={[12, 0.02, 0.05]} />
-      <meshStandardMaterial color="#994DFF" emissive="#994DFF" emissiveIntensity={2} toneMapped={false} />
-    </mesh>
-    <group position={[0, 1.2, -1]}>
-      <mesh><boxGeometry args={[3, 1.7, 0.05]} /><meshStandardMaterial color="#111" roughness={0.2} metalness={0.8} /></mesh>
-      <mesh position={[0, 0, 0.03]}><planeGeometry args={[2.8, 1.5]} /><meshStandardMaterial color="#000" emissive="#00D8FF" emissiveIntensity={0.4} toneMapped={false} /></mesh>
-    </group>
-    <group position={[-3.1, 1.2, -0.2]} rotation={[0, 0.5, 0]}>
-      <mesh><boxGeometry args={[2.2, 1.5, 0.05]} /><meshStandardMaterial color="#111" /></mesh>
-      <mesh position={[0, 0, 0.03]}><planeGeometry args={[2.0, 1.3]} /><meshStandardMaterial color="#000" emissive="#994DFF" emissiveIntensity={0.3} toneMapped={false} /></mesh>
-    </group>
-    <group position={[3.1, 1.2, -0.2]} rotation={[0, -0.5, 0]}>
-      <mesh><boxGeometry args={[2.2, 1.5, 0.05]} /><meshStandardMaterial color="#111" /></mesh>
-      <mesh position={[0, 0, 0.03]}><planeGeometry args={[2.0, 1.3]} /><meshStandardMaterial color="#000" emissive="#00D8FF" emissiveIntensity={0.3} toneMapped={false} /></mesh>
-    </group>
-  </group>
-)
-
-// --- 2. HOLOGRAPHIC SPHERE ---
+// --- 1. HOLOGRAPHIC SPHERE ---
 const HolographicSphere = () => {
   const ref = useRef()
   useFrame(() => {
@@ -49,7 +25,7 @@ const HolographicSphere = () => {
   )
 }
 
-// --- 3. CINEMATIC CONTROLLER ---
+// --- 2. CINEMATIC CONTROLLER ---
 const RoomController = ({ activeSection, isMobile }) => {
   const groupRef = useRef()
 
@@ -67,33 +43,30 @@ const RoomController = ({ activeSection, isMobile }) => {
       default: break;
     }
 
-    if (isMobile) {
-      targetScale *= 0.6; 
-      targetPos.y += 1.5; 
-      targetPos.x = 0;    
+    if (groupRef.current) {
+      groupRef.current.position.lerp(targetPos, 0.05)
+      const currentQuat = new THREE.Quaternion().setFromEuler(groupRef.current.rotation)
+      const targetQuat = new THREE.Quaternion().setFromEuler(targetRot)
+      currentQuat.slerp(targetQuat, 0.05)
+      groupRef.current.rotation.setFromQuaternion(currentQuat)
+      groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.05)
     }
-
-    groupRef.current.position.lerp(targetPos, 0.03)
-    groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.03)
-    const currentQuat = new THREE.Quaternion().setFromEuler(groupRef.current.rotation)
-    const targetQuat = new THREE.Quaternion().setFromEuler(targetRot)
-    currentQuat.slerp(targetQuat, 0.03)
-    groupRef.current.rotation.setFromQuaternion(currentQuat)
   })
 
   return (
     <group ref={groupRef}>
-      <CyberDesk />
+      <Suspense fallback={null}>
+        <Model scale={1} position={[0, -1.5, 0]} />
+      </Suspense>
       <HolographicSphere />
-      <Sparkles count={150} scale={12} size={3} speed={0.4} opacity={0.3} color="#00D8FF" />
-      <Sparkles count={100} scale={10} size={2} speed={0.2} opacity={0.2} color="#994DFF" />
+      <Sparkles count={50} scale={12} size={3} speed={0.4} opacity={0.3} color="#00D8FF" />
+      <Sparkles count={30} scale={10} size={2} speed={0.2} opacity={0.2} color="#994DFF" />
     </group>
   )
 }
 
 // --- MAIN APP ---
 export default function App() {
-  const [dpr, setDpr] = useState(1.5)
   const [activeSection, setActiveSection] = useState('home') 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
 
@@ -277,16 +250,26 @@ export default function App() {
         </div>
       </div>
 
-      {/* --- 3D CANVAS --- */}
-      <Canvas dpr={dpr} camera={{ position: [0, 0, 8], fov: 50 }}>
-        <PerformanceMonitor onDecline={() => setDpr(1)} onIncline={() => setDpr(1.5)} />
-        <ambientLight intensity={0.1} />
+      <Canvas dpr={1} camera={{ position: [0, 0, 8], fov: 50 }}>
+        <ambientLight intensity={0.2} />
         <Environment preset="city" blur={1} />
         
+        {/* FIX 2: OrbitControls lagaya jo makhan ki tarah smooth hai aur crash nahi hoga */}
+        <OrbitControls 
+          enableZoom={false} 
+          enablePan={false} 
+          minAzimuthAngle={-0.3} 
+          maxAzimuthAngle={0.3} 
+          minPolarAngle={Math.PI / 2 - 0.2} 
+          maxPolarAngle={Math.PI / 2 + 0.2} 
+          enableDamping={true}
+          dampingFactor={0.05}
+        />
+
         <RoomController activeSection={activeSection} isMobile={isMobile} />
 
         <EffectComposer disableNormalPass>
-          <Bloom luminanceThreshold={0.2} mipmapBlur intensity={1.2} />
+          <Bloom luminanceThreshold={0.4} mipmapBlur intensity={0.8} resolutionScale={0.5} />
         </EffectComposer>
       </Canvas>
     </div>
