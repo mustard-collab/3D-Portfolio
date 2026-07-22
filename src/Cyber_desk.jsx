@@ -11,7 +11,7 @@ import React from 'react'
 import { useGLTF } from '@react-three/drei'
 
 export function Model(props) {
-  const { nodes, materials } = useGLTF('/cyber_desk.glb')
+  const { nodes, materials } = useGLTF('./cyber_desk.glb')
   return (
     <group {...props} dispose={null}>
       <group rotation={[-Math.PI / 2, 0, 0]} scale={0.297}>
@@ -38,4 +38,4 @@ export function Model(props) {
   )
 }
 
-useGLTF.preload('/cyber_desk.glb')
+useGLTF.preload('./cyber_desk.glb')
